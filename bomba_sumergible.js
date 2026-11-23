@@ -1,8 +1,8 @@
 // === BOMBA SUMERGIBLE - Pozo / Riego / Llenado de Pileta ===
 
-// TIEMPOS DE RETARDO
-const RETARDO_BOMBA = 5000;        // 5 segundos al apagar y reencender
-const RETARDO_MANTENIMIENTO = 5000; // 5 seg abierta / 5 seg cerrada en mantenimiento
+// TIEMPOS DE RETARDO — AHORA 15 SEGUNDOS
+const RETARDO_BOMBA = 15000;        // ⏱️ 15 segundos al apagar y reencender
+const RETARDO_MANTENIMIENTO = 15000; // ⏱️ 15 seg abierta / 15 seg cerrada en mantenimiento
 
 // ESTADO
 let bombaSumergibleEncendida = false;
@@ -12,7 +12,7 @@ let haySinAgua = false;
 let tanqueLleno = true;
 let cicloMantenimientoActivo = false;
 
-let cuentaBomba = 5;
+let cuentaBomba = 15;
 let timerBomba;
 
 // INICIO — Actualizar tanque al cargar la página
@@ -20,9 +20,9 @@ actualizarEstadoTanque();
 
 // ACTUALIZAR CONTADOR EN PANTALLA
 function reiniciarContadorBomba() {
-    cuentaBomba = 5;
+    cuentaBomba = 15;
     const el = document.getElementById('contador-bomba');
-    if (el) el.textContent = '5s';
+    if (el) el.textContent = '15s';
     document.getElementById('contador-bomba').classList.remove('activo');
     clearInterval(timerBomba);
 }
@@ -30,7 +30,7 @@ function reiniciarContadorBomba() {
 function iniciarContadorBomba() {
     reiniciarContadorBomba();
     document.getElementById('contador-bomba').classList.add('activo');
-    cuentaBomba = 5;
+    cuentaBomba = 15;
     timerBomba = setInterval(() => {
         cuentaBomba--;
         const el = document.getElementById('contador-bomba');
@@ -65,9 +65,9 @@ function actualizarEstadoTanque() {
     }
 }
 
-// CAMBIAR ESTADO DE UNA VÁLVULA — PERMITE VARIAS JUNTAS
+// CAMBIAR ESTADO DE UNA VÁLVULA — PERMITE VARIAS JUNTAS + 15s DE RETARDO AL REENCENDER
 async function toggleValvulaBomba(nombre) {
-    console.log('🔘 Tocaste:', nombre); // ← Para ver en consola si funciona
+    console.log('🔘 Tocaste:', nombre);
     if (bloqueoBombaSumergible || cicloMantenimientoActivo || haySinAgua) return;
 
     const btn = document.getElementById('btn-' + nombre);
@@ -75,7 +75,7 @@ async function toggleValvulaBomba(nombre) {
     
     const estabaEncendida = valvulasBomba[nombre];
 
-    // Si la APAGAMOS
+    // Si la APAGAMOS — no hay espera, se cierra enseguida
     if (estabaEncendida) {
         valvulasBomba[nombre] = false;
         document.getElementById(nombre + '-estado').textContent = '⏸️ CERRADO';
@@ -90,7 +90,7 @@ async function toggleValvulaBomba(nombre) {
         return;
     }
 
-    // Si la bomba está apagada → esperar 5 segundos
+    // ✅ Si la bomba está APAGADA → ESPERAR 15 SEGUNDOS antes de abrir cualquiera
     if (!bombaSumergibleEncendida) {
         bloqueoBombaSumergible = true;
         btn.classList.add('esperando');
@@ -102,7 +102,7 @@ async function toggleValvulaBomba(nombre) {
         bloqueoBombaSumergible = false;
     }
 
-    // Encender esta válvula
+    // ✅ Encender esta válvula — se pueden abrir varias sin esperar entre ellas
     valvulasBomba[nombre] = true;
     document.getElementById(nombre + '-estado').textContent = '✅ ABIERTO';
     document.getElementById(nombre + '-estado').className = 'valor activo';
@@ -112,7 +112,7 @@ async function toggleValvulaBomba(nombre) {
     actualizarEstadoBombaSumergible();
 }
 
-// 🔧 MANTENIMIENTO — Cicla cada válvula una por una
+// 🔧 MANTENIMIENTO — Cicla cada válvula una por una (ahora con 15s)
 async function iniciarMantenimientoBomba() {
     console.log('🔧 Mantenimiento solicitado');
     if (bloqueoBombaSumergible || haySinAgua || cicloMantenimientoActivo) return;
@@ -186,3 +186,5 @@ function reiniciarSistema() {
     if (alerta) alerta.classList.remove('activa');
     actualizarEstadoBombaSumergible();
 }
+
+console.log('✅ bomba_sumergible.js cargado — Retardo: 15s | Mantenimiento: 15s');

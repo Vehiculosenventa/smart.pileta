@@ -1,9 +1,11 @@
-// === PRUEBA SIMPLE — Pileta ===
+// === Pileta Smart — Control de Válvulas ===
 
 let valvulaPiletaActiva = null;
 let bombaPiletaEncendida = false;
+let cambiando = false; // Evita doble clic mientras cambia
 
-const modos = ['skimmer', 'barrefondo', 'filtrado', 'retrolavado', 'enjuague', 'desagote', 'hidrojets'];
+// Quité "enjuague" de la lista
+const modos = ['skimmer', 'barrefondo', 'filtrado', 'retrolavado', 'desagote', 'hidrojets'];
 
 function actualizarTodo() {
     modos.forEach(modo => {
@@ -24,23 +26,50 @@ function actualizarTodo() {
     }
 }
 
-window.activarValvulaPileta = function(modo) {
+window.activarValvulaPileta = async function(modo) {
     console.log('👉 Tocado:', modo);
     
+    if (cambiando) {
+        console.log('⏳ Esperando, todavía está cambiando...');
+        return;
+    }
+    
+    // Si es la misma que ya está activa → la apagamos
     if (valvulaPiletaActiva === modo) {
         valvulaPiletaActiva = null;
         bombaPiletaEncendida = false;
-    } else {
-        valvulaPiletaActiva = modo;
-        bombaPiletaEncendida = true;
+        actualizarTodo();
+        return;
     }
+    
+    cambiando = true;
+    
+    // PASO 1: Cerramos la válvula actual
+    console.log('🔒 Cerrando:', valvulaPiletaActiva || 'ninguna');
+    valvulaPiletaActiva = null;
+    bombaPiletaEncendida = false;
     actualizarTodo();
+    
+    // PASO 2: Esperamos 15 segundos para que termine de cerrar
+    console.log('⏳ Esperando 15 segundos...');
+    await new Promise(resolve => setTimeout(resolve, 15000));
+    
+    // PASO 3: Abrimos la nueva válvula
+    console.log('🔓 Abriendo:', modo);
+    valvulaPiletaActiva = modo;
+    bombaPiletaEncendida = true;
+    actualizarTodo();
+    
+    cambiando = false;
+    console.log('✅ Cambio completado');
 };
 
 window.detenerTodoPileta = function() {
     valvulaPiletaActiva = null;
     bombaPiletaEncendida = false;
+    cambiando = false;
     actualizarTodo();
+    console.log('⏹️ Todo detenido');
 };
 
-console.log('✅ Pileta.js cargado');
+console.log('✅ Pileta.js cargado — Enjuague eliminado | 15s de retardo agregado');

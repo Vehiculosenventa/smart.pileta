@@ -3,9 +3,35 @@
 let valvulaPiletaActiva = null;
 let bombaPiletaEncendida = false;
 let cambiando = false; // Evita doble clic mientras cambia
+let cuentaPileta = 15;
+let timerPileta;
 
 // Quité "enjuague" de la lista
 const modos = ['skimmer', 'barrefondo', 'filtrado', 'retrolavado', 'desagote', 'hidrojets'];
+
+// === CONTADOR DE 15 SEGUNDOS EN PANTALLA ===
+function reiniciarContadorPileta() {
+    cuentaPileta = 15;
+    const el = document.getElementById('contador-pileta');
+    if (el) el.textContent = '15s';
+    el.classList.remove('activo');
+    clearInterval(timerPileta);
+}
+
+function iniciarContadorPileta() {
+    reiniciarContadorPileta();
+    const el = document.getElementById('contador-pileta');
+    el.classList.add('activo');
+    cuentaPileta = 15;
+    timerPileta = setInterval(() => {
+        cuentaPileta--;
+        el.textContent = cuentaPileta + 's';
+        if (cuentaPileta <= 0) {
+            clearInterval(timerPileta);
+            el.textContent = 'OK';
+        }
+    }, 1000);
+}
 
 function actualizarTodo() {
     modos.forEach(modo => {
@@ -38,6 +64,7 @@ window.activarValvulaPileta = async function(modo) {
     if (valvulaPiletaActiva === modo) {
         valvulaPiletaActiva = null;
         bombaPiletaEncendida = false;
+        reiniciarContadorPileta();
         actualizarTodo();
         return;
     }
@@ -50,8 +77,9 @@ window.activarValvulaPileta = async function(modo) {
     bombaPiletaEncendida = false;
     actualizarTodo();
     
-    // PASO 2: Esperamos 15 segundos para que termine de cerrar
+    // PASO 2: Contamos y esperamos 15 segundos
     console.log('⏳ Esperando 15 segundos...');
+    iniciarContadorPileta();
     await new Promise(resolve => setTimeout(resolve, 15000));
     
     // PASO 3: Abrimos la nueva válvula
@@ -68,8 +96,9 @@ window.detenerTodoPileta = function() {
     valvulaPiletaActiva = null;
     bombaPiletaEncendida = false;
     cambiando = false;
+    reiniciarContadorPileta();
     actualizarTodo();
     console.log('⏹️ Todo detenido');
 };
 
-console.log('✅ Pileta.js cargado — Enjuague eliminado | 15s de retardo agregado');
+console.log('✅ Pileta.js cargado — Una a la vez + Contador 15s ✅');

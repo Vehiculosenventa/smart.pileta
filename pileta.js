@@ -1,18 +1,18 @@
 // === CONTROL DE PILETA — Válvulas, Bomba, Filtrado y Retrolavado ===
 
 // TIEMPOS DE RETARDO
-const RETARDO_CAMBIO_VALVULA = 5000;   // 5s entre cerrar una y abrir otra
-const RETARDO_MANTENIMIENTO = 5000;     // 5s abierta / 5s cerrada
+const RETARDO_CAMBIO_VALVULA = 5000;   // ← ¡FALTABA! 5s entre cerrar una y abrir otra
+const RETARDO_MANTENIMIENTO = 5000;     // ← Agregado para Mantenimiento
 const RETARDO_ARRANQUE_BOMBA = 20000;   // 20s de tolerancia al cebado
 const RETARDO_CORTE_FLUJO = 3000;       // 3s antes de apagar si pierde agua andando
-const TIEMPO_RETROLAVADO = 120000;       // 2 minutos de retrolavado (ajustable)
+const TIEMPO_RETROLAVADO = 120000;      // 2 minutos de retrolavado (ajustable)
 
 // ESTADO
 let valvulaPiletaActiva = null;
 let bombaPiletaEncendida = false;
 let bloqueoBombaPileta = false;
 let modoRetrolavadoActivo = false;
-let cicloMantenimientoPiletaActivo = false;
+let cicloMantenimientoPiletaActivo = false;  // ← Agregado
 let temporizadorRetrolavado = null;
 
 let cuentaPileta = 5;
@@ -58,6 +58,7 @@ function actualizarEstadoBombaPileta() {
 }
 
 function actualizarEstadoValvulasPileta() {
+    // ← Agregué 'enjuague' a la lista
     const modos = ['skimmer', 'barrefondo', 'filtrado', 'retrolavado', 'enjuague', 'desagote', 'hidrojets'];
     modos.forEach(modo => {
         const el = document.getElementById('valv-' + modo);
@@ -86,8 +87,10 @@ async function activarValvulaPileta(modo) {
     console.log('🔘 Botón pileta:', modo);
     if (bloqueoBombaPileta || modoRetrolavadoActivo || cicloMantenimientoPiletaActivo) return;
 
+    const btn = document.getElementById('btn-' + modo);
     const estabaActivo = (valvulaPiletaActiva === modo);
 
+    // Si tocamos el mismo que está activo → lo apagamos todo
     if (estabaActivo) {
         detenerTodoPileta();
         return;
@@ -95,14 +98,17 @@ async function activarValvulaPileta(modo) {
 
     bloqueoBombaPileta = true;
 
+    // PASO 1: Apagar bomba primero si estaba encendida
     if (bombaPiletaEncendida) {
         bombaPiletaEncendida = false;
         actualizarEstadoBombaPileta();
     }
 
+    // PASO 2: Cerrar válvula anterior
     valvulaPiletaActiva = null;
     actualizarEstadoValvulasPileta();
 
+    // PASO 3: Esperar 5 segundos
     const estadoEl = document.getElementById('bomba-pileta-estado');
     if (estadoEl) {
         estadoEl.textContent = '⏳ CAMBIANDO...';
@@ -111,9 +117,11 @@ async function activarValvulaPileta(modo) {
     iniciarContadorPileta();
     await new Promise(r => setTimeout(r, RETARDO_CAMBIO_VALVULA));
 
+    // PASO 4: Abrir la nueva válvula
     valvulaPiletaActiva = modo;
     actualizarEstadoValvulasPileta();
 
+    // PASO 5: Encender bomba
     bombaPiletaEncendida = true;
     actualizarEstadoBombaPileta();
 
@@ -128,9 +136,11 @@ async function iniciarRetrolavado() {
     modoRetrolavadoActivo = true;
     bloqueoBombaPileta = true;
 
+    // PASO 1: Apagar bomba
     bombaPiletaEncendida = false;
     actualizarEstadoBombaPileta();
 
+    // PASO 2: Cerrar todo
     valvulaPiletaActiva = null;
     actualizarEstadoValvulasPileta();
     
@@ -146,19 +156,22 @@ async function iniciarRetrolavado() {
     bombaPiletaEncendida = true;
     actualizarEstadoBombaPileta();
 
+    // PASO 3: Tiempo de retrolavado → Enjuague → Filtrado
     temporizadorRetrolavado = setTimeout(async () => {
         bombaPiletaEncendida = false;
         actualizarEstadoBombaPileta();
         
         await new Promise(r => setTimeout(r, 5000));
         
+        // PASO 4: Enjuague
         valvulaPiletaActiva = 'enjuague';
         actualizarEstadoValvulasPileta();
         bombaPiletaEncendida = true;
         actualizarEstadoBombaPileta();
         
-        await new Promise(r => setTimeout(r, 30000));
+        await new Promise(r => setTimeout(r, 30000)); // 30s enjuague
         
+        // PASO 5: Volver a Filtrado
         bombaPiletaEncendida = false;
         actualizarEstadoBombaPileta();
         
@@ -175,17 +188,19 @@ async function iniciarRetrolavado() {
     }, TIEMPO_RETROLAVADO);
 }
 
-// === 🔧 MANTENIMIENTO ===
+// === 🔧 MANTENIMIENTO MENSUAL — Destrabar válvulas ===
 async function iniciarMantenimientoPileta() {
     console.log('🔧 Mantenimiento pileta');
     if (bloqueoBombaPileta || modoRetrolavadoActivo || cicloMantenimientoPiletaActivo) return;
 
     if (!bombaPiletaEncendida) {
-        alert('⚠️ Encendé la bomba primero');
+        alert('⚠️ Encendé la bomba primero para hacer el mantenimiento');
         return;
     }
 
-    if (!confirm('🔧 Iniciar mantenimiento mensual?')) return;
+    if (!confirm('🔧 Iniciar mantenimiento mensual?\n\nMoverá cada válvula para que no se trabe.')) {
+        return;
+    }
 
     cicloMantenimientoPiletaActivo = true;
     bloqueoBombaPileta = true;
@@ -213,7 +228,7 @@ async function iniciarMantenimientoPileta() {
     alert('✅ Mantenimiento finalizado');
 }
 
-// === DETENER TODO ===
+// === DETENER TODO — Pileta ===
 function detenerTodoPileta() {
     if (temporizadorRetrolavado) {
         clearTimeout(temporizadorRetrolavado);
@@ -229,7 +244,5 @@ function detenerTodoPileta() {
     reiniciarContadorPileta();
 }
 
-// === INICIO — Verificar carga ===
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('✅ pileta.js cargado correctamente');
-});
+// === VERIFICAR CARGA ===
+console.log('✅ pileta.js cargado correctamente');

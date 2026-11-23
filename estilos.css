@@ -98,10 +98,22 @@ h2 {
     animation: parpadeo 1.5s infinite;
 }
 
+.valor.mantenimiento {
+    color: #8e44ad;
+    font-weight: 700;
+}
+
 .fila-tres {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
+}
+
+.fila-doble {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
 }
 
 .fila-doble-tres {
@@ -148,6 +160,11 @@ h2 {
 .btn-p4 { background: #e67e22; }
 .btn-p5 { background: #9b59b6; }
 .btn-p6 { background: #1abc9c; }
+.btn-p7 { background: #16a085; }
+.btn-mantenimiento {
+    background: linear-gradient(135deg, #8e44ad, #9b59b6);
+    width: 100%;
+}
 
 .btn-detener {
     background: #2c3e50;

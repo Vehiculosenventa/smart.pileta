@@ -2,45 +2,47 @@
 
 let valvulaPiletaActiva = null;
 let bombaPiletaEncendida = false;
-let cambiando = false; // Evita doble clic mientras cambia
+let cambiando = false;
 let cuentaPileta = 15;
 let timerPileta;
 
-// Quité "enjuague" de la lista
-const modos = ['skimmer', 'barrefondo', 'filtrado', 'retrolavado', 'desagote', 'hidrojets'];
+const modos = ['skimmer', 'barrefondo', 'barrefondo-desagote', 'filtrado', 'retrolavado', 'desagote', 'hidrojets'];
 
 // === CONTADOR DE 15 SEGUNDOS EN PANTALLA ===
 function reiniciarContadorPileta() {
     cuentaPileta = 15;
     const el = document.getElementById('contador-pileta');
     if (el) el.textContent = '15s';
-    el.classList.remove('activo');
+    if (el) el.classList.remove('activo');
     clearInterval(timerPileta);
 }
 
 function iniciarContadorPileta() {
     reiniciarContadorPileta();
     const el = document.getElementById('contador-pileta');
-    el.classList.add('activo');
+    if (el) el.classList.add('activo');
     cuentaPileta = 15;
     timerPileta = setInterval(() => {
         cuentaPileta--;
-        el.textContent = cuentaPileta + 's';
+        if (el) el.textContent = cuentaPileta + 's';
         if (cuentaPileta <= 0) {
             clearInterval(timerPileta);
-            el.textContent = 'OK';
+            if (el) el.textContent = 'OK';
         }
     }, 1000);
 }
 
+function actualizarEstado(modo, texto) {
+    const el = document.getElementById('valv-' + modo);
+    if (el) {
+        el.textContent = texto;
+        el.className = texto === '✅ ABIERTA' ? 'valor activo' : 'valor inactivo';
+    }
+}
+
 function actualizarTodo() {
     modos.forEach(modo => {
-        const el = document.getElementById('valv-' + modo);
         const btn = document.getElementById('btn-' + modo);
-        if (el) {
-            el.textContent = valvulaPiletaActiva === modo ? '✅ ABIERTA' : '🔒 CERRADA';
-            el.className = valvulaPiletaActiva === modo ? 'valor activo' : 'valor inactivo';
-        }
         if (btn) {
             valvulaPiletaActiva === modo ? btn.classList.add('activo') : btn.classList.remove('activo');
         }
@@ -62,43 +64,82 @@ window.activarValvulaPileta = async function(modo) {
     
     // Si es la misma que ya está activa → la apagamos
     if (valvulaPiletaActiva === modo) {
-        valvulaPiletaActiva = null;
+        console.log('⏹️ Apagando sistema...');
+        // PASO 1: Primero apagar la bomba
         bombaPiletaEncendida = false;
+        actualizarTodo();
+        // PASO 2: Mostrar cerrando y esperar
+        actualizarEstado(modo, '⏳ Cerrando...');
+        iniciarContadorPileta();
+        await new Promise(resolve => setTimeout(resolve, 15000));
+        // PASO 3: Cerrar
+        actualizarEstado(modo, '🔒 CERRADA');
+        valvulaPiletaActiva = null;
         reiniciarContadorPileta();
         actualizarTodo();
+        console.log('✅ Sistema detenido');
         return;
     }
     
     cambiando = true;
     
-    // PASO 1: Cerramos la válvula actual
-    console.log('🔒 Cerrando:', valvulaPiletaActiva || 'ninguna');
-    valvulaPiletaActiva = null;
-    bombaPiletaEncendida = false;
-    actualizarTodo();
+    // PASO 1: Si hay una válvula activa → apagar bomba PRIMERO
+    const anterior = valvulaPiletaActiva;
+    if (anterior) {
+        console.log('🔒 Cambiando desde:', anterior);
+        // PRIMERO: Apagar la bomba
+        bombaPiletaEncendida = false;
+        actualizarTodo();
+        // Después: Mostrar cerrando y esperar
+        actualizarEstado(anterior, '⏳ Cerrando...');
+        iniciarContadorPileta();
+        await new Promise(resolve => setTimeout(resolve, 15000));
+        // Al final: Marcar cerrada
+        actualizarEstado(anterior, '🔒 CERRADA');
+    }
     
-    // PASO 2: Contamos y esperamos 15 segundos
-    console.log('⏳ Esperando 15 segundos...');
+    // PASO 2: Ahora abrir la nueva válvula
+    console.log('🔓 Abriendo:', modo);
+    actualizarEstado(modo, '⏳ Abriendo...');
+    valvulaPiletaActiva = modo;
     iniciarContadorPileta();
     await new Promise(resolve => setTimeout(resolve, 15000));
     
-    // PASO 3: Abrimos la nueva válvula
-    console.log('🔓 Abriendo:', modo);
-    valvulaPiletaActiva = modo;
+    // PASO 3: Recién ahora que está abierta → encender bomba
+    console.log('✅ Válvula lista — Encendiendo bomba');
+    actualizarEstado(modo, '✅ ABIERTA');
     bombaPiletaEncendida = true;
+    reiniciarContadorPileta();
     actualizarTodo();
     
     cambiando = false;
     console.log('✅ Cambio completado');
 };
 
-window.detenerTodoPileta = function() {
-    valvulaPiletaActiva = null;
+window.detenerTodoPileta = async function() {
+    if (cambiando) return;
+    
+    cambiando = true;
+    const anterior = valvulaPiletaActiva;
+    
+    // PASO 1: Primero apagar la bomba
     bombaPiletaEncendida = false;
+    actualizarTodo();
+    
+    if (anterior) {
+        // PASO 2: Mostrar cerrando y esperar
+        actualizarEstado(anterior, '⏳ Cerrando...');
+        iniciarContadorPileta();
+        await new Promise(resolve => setTimeout(resolve, 15000));
+        // PASO 3: Cerrar
+        actualizarEstado(anterior, '🔒 CERRADA');
+    }
+    
+    valvulaPiletaActiva = null;
     cambiando = false;
     reiniciarContadorPileta();
     actualizarTodo();
     console.log('⏹️ Todo detenido');
 };
 
-console.log('✅ Pileta.js cargado — Una a la vez + Contador 15s ✅');
+console.log('✅ Pileta.js cargado — Bomba primero APAGA, luego cierra ✅');

@@ -15,6 +15,45 @@ let cicloMantenimientoActivo = false;
 let cuentaBomba = 15;
 let timerBomba;
 
+// === AUTOAPAGADO POR INACTIVIDAD ===
+let tiempoAutoapagadoBomba = 0; // 0 = desactivado
+let temporizadorAutoapagadoBomba = null;
+
+// Reiniciar el contador cada vez que el usuario hace algo
+function reiniciarAutoapagadoBomba() {
+    if (tiempoAutoapagadoBomba === 0) return; // No está activado
+    
+    // Si ya hay uno corriendo, lo cancelamos
+    if (temporizadorAutoapagadoBomba) {
+        clearTimeout(temporizadorAutoapagadoBomba);
+    }
+    
+    // Empezamos a contar de nuevo
+    temporizadorAutoapagadoBomba = setTimeout(() => {
+        console.log('⏰ Autoapagado Bomba Sumergible — Sin actividad, apagando...');
+        detenerTodoBomba();
+        alert('⏰ Autoapagado: Se apagó por inactividad');
+    }, tiempoAutoapagadoBomba);
+    
+    console.log('⏱️ Autoapagado reiniciado — faltan', tiempoAutoapagadoBomba / 60000, 'minutos');
+}
+
+// Cambiar el tiempo desde el recuadro
+function establecerAutoapagadoBomba(minutos) {
+    tiempoAutoapagadoBomba = minutos * 60000;
+    
+    if (minutos === 0) {
+        if (temporizadorAutoapagadoBomba) {
+            clearTimeout(temporizadorAutoapagadoBomba);
+            temporizadorAutoapagadoBomba = null;
+        }
+        console.log('❌ Autoapagado Bomba: DESACTIVADO');
+    } else {
+        reiniciarAutoapagadoBomba();
+        console.log('✅ Autoapagado Bomba activado cada', minutos, 'minutos');
+    }
+}
+
 // INICIO — Mostrar 🔒 CERRADA desde el primer momento
 function inicializarValvulas() {
     const nombres = ['zona1', 'zona2', 'llenado'];
@@ -84,6 +123,9 @@ async function toggleValvulaBomba(nombre) {
     console.log('🔘 Tocaste:', nombre);
     if (bloqueoBombaSumergible || cicloMantenimientoActivo || haySinAgua) return;
 
+    // ✅ Reiniciar el contador de autoapagado cada vez que el usuario hace algo
+    reiniciarAutoapagadoBomba();
+
     const btn = document.getElementById('btn-' + nombre);
     if (!btn) return;
     
@@ -149,6 +191,9 @@ async function iniciarMantenimientoBomba() {
     console.log('🔧 Mantenimiento solicitado');
     if (bloqueoBombaSumergible || haySinAgua || cicloMantenimientoActivo) return;
 
+    // ✅ Reiniciar autoapagado
+    reiniciarAutoapagadoBomba();
+
     if (!bombaSumergibleEncendida) {
         alert('Encendé la bomba primero para hacer el mantenimiento');
         return;
@@ -212,6 +257,12 @@ async function iniciarMantenimientoBomba() {
 async function detenerTodoBomba() {
     if (bloqueoBombaSumergible) return;
     
+    // ✅ Cancelar el autoapagado si está corriendo
+    if (temporizadorAutoapagadoBomba) {
+        clearTimeout(temporizadorAutoapagadoBomba);
+        temporizadorAutoapagadoBomba = null;
+    }
+    
     if (cicloMantenimientoActivo) {
         cicloMantenimientoActivo = false;
     }
@@ -270,4 +321,4 @@ function reiniciarSistema() {
     actualizarEstadoBombaSumergible();
 }
 
-console.log('✅ bomba_sumergible.js cargado — Varias válvulas a la vez ✅ Bomba apaga antes de cerrar última ✅');
+console.log('✅ bomba_sumergible.js cargado — Autoapagado listo ✅');

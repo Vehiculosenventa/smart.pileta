@@ -114,6 +114,7 @@ h2 {
     grid-template-columns: 1fr 1fr;
     gap: 10px;
     width: 100%;
+    margin-top: 14px;
 }
 
 .fila-doble-tres {
@@ -166,12 +167,26 @@ h2 {
     background: linear-gradient(135deg, #8e44ad, #9b59b6);
 }
 
+/* Botón Autoapagado — mismo tamaño que el otro */
+.btn-autoapagado {
+    background: #6c5ce7;
+}
+
+.btn-autoapagado:hover {
+    background: #5b4cdb;
+}
+
+/* Botón Detener / Apagar Todo — ahora mismo tamaño, al lado */
 .btn-detener {
-    background: #2c3e50;
+    background: #e17055;
     width: 100%;
     margin-top: 14px;
     padding: 14px;
     font-size: 1rem;
+}
+
+.btn-detener:hover {
+    background: #d63031;
 }
 
 .camara {
@@ -227,4 +242,104 @@ h2 {
     margin-top: 20px;
     font-size: 0.85rem;
     color: #7f8c8d;
+}
+
+/* === RECUADRO DEL TEMPORIZADOR === */
+
+.modal-fondo {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    z-index: 900;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-fondo.activo {
+    display: flex;
+}
+
+.modal-contenido {
+    background-color: #ffffff;
+    padding: 1.5rem;
+    border-radius: 12px;
+    max-width: 360px;
+    width: 90%;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    text-align: center;
+}
+
+.modal-contenido h3 {
+    margin-top: 0;
+    color: #2c3e50;
+    font-size: 1.2rem;
+}
+
+.subtitulo {
+    color: #666;
+    margin-bottom: 1rem;
+}
+
+.opcion-tiempo {
+    padding: 0.8rem;
+    margin: 0.5rem 0;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+    background-color: #fafafa;
+}
+
+.opcion-tiempo:hover {
+    border-color: #6c5ce7;
+    background-color: #f4f1ff;
+}
+
+.opcion-tiempo.seleccionado {
+    border-color: #27ae60;
+    background-color: #e8f8f0;
+    font-weight: bold;
+    color: #218c54;
+}
+
+.hora-apagado {
+    margin: 1rem 0;
+    padding: 0.8rem;
+    background-color: #f4f4f4;
+    border-radius: 6px;
+    font-size: 1rem;
+    color: #555;
+}
+
+.botones-modal {
+    display: flex;
+    gap: 0.8rem;
+    margin-top: 1.5rem;
+}
+
+.boton-modal-cancelar {
+    flex: 1;
+    padding: 0.8rem;
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.boton-modal-confirmar {
+    flex: 1;
+    padding: 0.8rem;
+    background-color: #27ae60;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
 }

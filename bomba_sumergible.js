@@ -15,43 +15,140 @@ let cicloMantenimientoActivo = false;
 let cuentaBomba = 15;
 let timerBomba;
 
-// === AUTOAPAGADO POR INACTIVIDAD ===
-let tiempoAutoapagadoBomba = 0; // 0 = desactivado
-let temporizadorAutoapagadoBomba = null;
+// === AUTOAPAGADO — LA PLACA ES LA QUE CUENTA Y APAGA, LA WEB SOLO MUESTRA ===
+let tiempoSeleccionado = 0;           // minutos elegidos por el usuario
+let cuentaRestante = 0;               // lo que muestra la web
+let temporizadorWeb = null;           // solo para mostrar la cuenta en pantalla
+let autoapagadoActivo = false;
 
-// Reiniciar el contador cada vez que el usuario hace algo
-function reiniciarAutoapagadoBomba() {
-    if (tiempoAutoapagadoBomba === 0) return; // No está activado
-    
-    // Si ya hay uno corriendo, lo cancelamos
-    if (temporizadorAutoapagadoBomba) {
-        clearTimeout(temporizadorAutoapagadoBomba);
-    }
-    
-    // Empezamos a contar de nuevo
-    temporizadorAutoapagadoBomba = setTimeout(() => {
-        console.log('⏰ Autoapagado Bomba Sumergible — Sin actividad, apagando...');
-        detenerTodoBomba();
-        alert('⏰ Autoapagado: Se apagó por inactividad');
-    }, tiempoAutoapagadoBomba);
-    
-    console.log('⏱️ Autoapagado reiniciado — faltan', tiempoAutoapagadoBomba / 60000, 'minutos');
+// Abrir el recuadro del temporizador
+function abrirTemporizador(sistema) {
+    const modal = document.getElementById('modal-temporizador');
+    modal.innerHTML = `
+        <div id="fondo-temporizador" class="modal-fondo activo" onclick="cerrarTemporizador(event)">
+            <div class="modal-contenido" onclick="event.stopPropagation()">
+                <h3>⏱️ Autoapagado por Inactividad</h3>
+                <p class="subtitulo">Seleccioná cuándo apagar automáticamente</p>
+                
+                <div class="opcion-tiempo" data-minutos="30" onclick="seleccionarTiempo(30, this)">
+                    <strong>30 minutos</strong>
+                </div>
+                <div class="opcion-tiempo" data-minutos="60" onclick="seleccionarTiempo(60, this)">
+                    <strong>1 hora</strong>
+                </div>
+                <div class="opcion-tiempo" data-minutos="120" onclick="seleccionarTiempo(120, this)">
+                    <strong>2 horas</strong>
+                </div>
+                <div class="opcion-tiempo" data-minutos="0" onclick="seleccionarTiempo(0, this)">
+                    <strong>❌ Desactivar</strong>
+                </div>
+                
+                <div class="hora-apagado" id="hora-apagado">
+                    Seleccioná un tiempo
+                </div>
+                
+                <div class="botones-modal">
+                    <button class="boton-modal-cancelar" onclick="cerrarTemporizador()">❌ Cancelar</button>
+                    <button class="boton-modal-confirmar" onclick="confirmarAutoapagado()">✅ Confirmar</button>
+                </div>
+            </div>
+        </div>
+    `;
+    tiempoSeleccionado = 0;
 }
 
-// Cambiar el tiempo desde el recuadro
-function establecerAutoapagadoBomba(minutos) {
-    tiempoAutoapagadoBomba = minutos * 60000;
+// Elegir un tiempo
+function seleccionarTiempo(minutos, elemento) {
+    tiempoSeleccionado = minutos;
     
+    document.querySelectorAll('.opcion-tiempo').forEach(el => el.classList.remove('seleccionado'));
+    elemento.classList.add('seleccionado');
+    
+    const horaTexto = document.getElementById('hora-apagado');
     if (minutos === 0) {
-        if (temporizadorAutoapagadoBomba) {
-            clearTimeout(temporizadorAutoapagadoBomba);
-            temporizadorAutoapagadoBomba = null;
-        }
-        console.log('❌ Autoapagado Bomba: DESACTIVADO');
+        horaTexto.textContent = '❌ Autoapagado desactivado';
     } else {
-        reiniciarAutoapagadoBomba();
-        console.log('✅ Autoapagado Bomba activado cada', minutos, 'minutos');
+        const ahora = new Date();
+        const apagarA = new Date(ahora.getTime() + minutos * 60000);
+        const h = apagarA.getHours().toString().padStart(2, '0');
+        const m = apagarA.getMinutes().toString().padStart(2, '0');
+        horaTexto.innerHTML = `⏰ Se apaga a las <strong>${h}:${m}</strong>`;
     }
+}
+
+// Confirmar y enviar a la PLACA — LA PLACA ES LA QUE MANDA
+function confirmarAutoapagado() {
+    cerrarTemporizador();
+    
+    if (tiempoSeleccionado === 0) {
+        // Cancelar en la placa
+        enviarComandoAPlaca('AUTOAPAGADO:BOMBA:0');
+        detenerCuentaWeb();
+        autoapagadoActivo = false;
+        alert('❌ Autoapagado desactivado');
+        return;
+    }
+    
+    // ✅ Enviar a la placa — ELLA cuenta y apaga
+    enviarComandoAPlaca(`AUTOAPAGADO:BOMBA:${tiempoSeleccionado}`);
+    
+    // ✅ La web solo muestra la cuenta, NO decide apagar
+    iniciarCuentaWeb(tiempoSeleccionado);
+    autoapagadoActivo = true;
+    
+    alert(`✅ Enviado a la placa: se apaga en ${tiempoSeleccionado} minutos\nLa placa es la que controla el tiempo`);
+}
+
+// ⏱️ La web solo muestra la cuenta regresiva
+function iniciarCuentaWeb(minutos) {
+    detenerCuentaWeb();
+    cuentaRestante = minutos * 60; // en segundos
+    
+    const actualizarDisplay = () => {
+        if (cuentaRestante <= 0) {
+            if (temporizadorWeb) clearInterval(temporizadorWeb);
+            temporizadorWeb = null;
+            return;
+        }
+        const h = Math.floor(cuentaRestante / 3600);
+        const m = Math.floor((cuentaRestante % 3600) / 60);
+        // Podés mostrarlo donde quieras en la interfaz
+        console.log(`⏳ Falta: ${h}h ${m}m — LA PLACA CUENTA REALMENTE`);
+        cuentaRestante--;
+    };
+    
+    actualizarDisplay();
+    temporizadorWeb = setInterval(actualizarDisplay, 1000);
+}
+
+// Detener la cuenta visual
+function detenerCuentaWeb() {
+    if (temporizadorWeb) {
+        clearInterval(temporizadorWeb);
+        temporizadorWeb = null;
+    }
+    cuentaRestante = 0;
+}
+
+// ✅ Cada vez que el usuario hace algo → avisar a la placa que reinicie su cuenta
+function reiniciarCuentaEnPlaca() {
+    if (!autoapagadoActivo || tiempoSeleccionado === 0) return;
+    enviarComandoAPlaca(`AUTOAPAGADO:BOMBA:REINICIAR:${tiempoSeleccionado}`);
+    iniciarCuentaWeb(tiempoSeleccionado); // Reiniciar también el display de la web
+}
+
+// Cerrar recuadro
+function cerrarTemporizador(event) {
+    if (event && event.target !== event.currentTarget) return;
+    document.getElementById('modal-temporizador').innerHTML = '';
+}
+
+// 📡 ENVIAR COMANDO A LA PLACA — acá conectás con tu ESP32
+function enviarComandoAPlaca(comando) {
+    console.log('📡 Enviando a la placa:', comando);
+    // Acá va tu código real de comunicación con la placa:
+    // fetch, WebSocket, o lo que uses
+    // Ejemplo básico: fetch('/comando?cmd=' + encodeURIComponent(comando))
 }
 
 // INICIO — Mostrar 🔒 CERRADA desde el primer momento
@@ -118,13 +215,13 @@ function actualizarEstadoTanque() {
     }
 }
 
-// === CAMBIAR ESTADO DE UNA VÁLVULA — SIEMPRE ESPERA 15s ===
+// === CAMBIAR ESTADO DE UNA VÁLVULA ===
 async function toggleValvulaBomba(nombre) {
     console.log('🔘 Tocaste:', nombre);
     if (bloqueoBombaSumergible || cicloMantenimientoActivo || haySinAgua) return;
 
-    // ✅ Reiniciar el contador de autoapagado cada vez que el usuario hace algo
-    reiniciarAutoapagadoBomba();
+    // ✅ Cada acción del usuario → la placa reinicia su cuenta
+    reiniciarCuentaEnPlaca();
 
     const btn = document.getElementById('btn-' + nombre);
     if (!btn) return;
@@ -132,49 +229,40 @@ async function toggleValvulaBomba(nombre) {
     const estabaEncendida = valvulasBomba[nombre];
     const cantidadAbiertaAntes = Object.values(valvulasBomba).filter(v => v).length;
     
-    // ⏱️ Mostrar estado en la VÁLVULA
     bloqueoBombaSumergible = true;
     btn.classList.add('esperando');
     const estadoValvula = document.getElementById(nombre + '-estado');
     
     if (estabaEncendida) {
-        // 🔄 CERRANDO la válvula
         estadoValvula.textContent = '⏳ Cerrando...';
         estadoValvula.className = 'valor esperando';
         
-        // 🔹 Si es la ÚLTIMA abierta → PRIMERO APAGAR LA BOMBA
         const esLaUltima = cantidadAbiertaAntes === 1;
         if (esLaUltima) {
             bombaSumergibleEncendida = false;
             actualizarEstadoBombaSumergible();
         }
         
-        // ⏳ Esperar los 15 segundos
         iniciarContadorBomba();
         await new Promise(r => setTimeout(r, RETARDO_VALVULA));
         
-        // ✅ Al final: Cerrar la válvula
         valvulasBomba[nombre] = false;
         estadoValvula.textContent = '🔒 CERRADA';
         estadoValvula.className = 'valor inactivo';
         btn.classList.remove('activo');
         
     } else {
-        // 🔄 ABRIENDO la válvula
         estadoValvula.textContent = '⏳ Abriendo...';
         estadoValvula.className = 'valor esperando';
         
-        // ⏳ Esperar los 15 segundos
         iniciarContadorBomba();
         await new Promise(r => setTimeout(r, RETARDO_VALVULA));
         
-        // ✅ Al final: Abrir la válvula
         valvulasBomba[nombre] = true;
         estadoValvula.textContent = '✅ ABIERTA';
         estadoValvula.className = 'valor activo';
         btn.classList.add('activo');
         
-        // 🔹 Si era todo cerrado → ENCENDER LA BOMBA
         if (cantidadAbiertaAntes === 0) {
             bombaSumergibleEncendida = true;
             actualizarEstadoBombaSumergible();
@@ -191,8 +279,8 @@ async function iniciarMantenimientoBomba() {
     console.log('🔧 Mantenimiento solicitado');
     if (bloqueoBombaSumergible || haySinAgua || cicloMantenimientoActivo) return;
 
-    // ✅ Reiniciar autoapagado
-    reiniciarAutoapagadoBomba();
+    // ✅ Reiniciar cuenta en la placa
+    reiniciarCuentaEnPlaca();
 
     if (!bombaSumergibleEncendida) {
         alert('Encendé la bomba primero para hacer el mantenimiento');
@@ -253,14 +341,15 @@ async function iniciarMantenimientoBomba() {
     alert('Mantenimiento finalizado');
 }
 
-// DETENER TODO — APAGA BOMBA, TODAS ESPERAN JUNTAS, LUEGO CIERRAN JUNTAS
+// DETENER TODO — la web solo avisa a la placa si hay autoapagado activo
 async function detenerTodoBomba() {
     if (bloqueoBombaSumergible) return;
     
-    // ✅ Cancelar el autoapagado si está corriendo
-    if (temporizadorAutoapagadoBomba) {
-        clearTimeout(temporizadorAutoapagadoBomba);
-        temporizadorAutoapagadoBomba = null;
+    // ✅ Si se apaga manual → avisar a la placa que cancele
+    if (autoapagadoActivo) {
+        enviarComandoAPlaca('AUTOAPAGADO:BOMBA:0');
+        detenerCuentaWeb();
+        autoapagadoActivo = false;
     }
     
     if (cicloMantenimientoActivo) {
@@ -269,11 +358,9 @@ async function detenerTodoBomba() {
     
     bloqueoBombaSumergible = true;
     
-    // 🔹 PASO 1 — APAGAR LA BOMBA ENSEGUIDA
     bombaSumergibleEncendida = false;
     actualizarEstadoBombaSumergible();
     
-    // 🔹 PASO 2 — Encontrar cuáles están abiertas
     const abiertas = Object.entries(valvulasBomba)
         .filter(([_, abierta]) => abierta)
         .map(([nombre]) => nombre);
@@ -284,7 +371,6 @@ async function detenerTodoBomba() {
         return;
     }
     
-    // 🔹 PASO 3 — TODAS muestran "Cerrando..." AL MISMO TIEMPO
     abiertas.forEach(nombre => {
         const estadoValvula = document.getElementById(nombre + '-estado');
         const btn = document.getElementById('btn-' + nombre);
@@ -293,11 +379,9 @@ async function detenerTodoBomba() {
         if (btn) btn.classList.add('esperando');
     });
     
-    // 🔹 PASO 4 — Esperar 15 segundos
     iniciarContadorBomba();
     await new Promise(r => setTimeout(r, RETARDO_VALVULA));
     
-    // 🔹 PASO 5 — TODAS pasan a CERRADA JUNTAS
     abiertas.forEach(nombre => {
         valvulasBomba[nombre] = false;
         const estadoValvula = document.getElementById(nombre + '-estado');
@@ -321,4 +405,4 @@ function reiniciarSistema() {
     actualizarEstadoBombaSumergible();
 }
 
-console.log('✅ bomba_sumergible.js cargado — Autoapagado listo ✅');
+console.log('✅ bomba_sumergible.js cargado

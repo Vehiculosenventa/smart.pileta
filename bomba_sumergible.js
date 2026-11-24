@@ -15,7 +15,19 @@ let cicloMantenimientoActivo = false;
 let cuentaBomba = 15;
 let timerBomba;
 
-// INICIO
+// INICIO — Mostrar 🔒 CERRADA desde el primer momento
+function inicializarValvulas() {
+    const nombres = ['zona1', 'zona2', 'llenado'];
+    nombres.forEach(nombre => {
+        const el = document.getElementById(nombre + '-estado');
+        if (el) {
+            el.textContent = '🔒 CERRADA';
+            el.className = 'valor inactivo';
+        }
+    });
+}
+
+inicializarValvulas();
 actualizarEstadoTanque();
 actualizarEstadoBombaSumergible();
 
@@ -248,4 +260,4 @@ function reiniciarSistema() {
     actualizarEstadoBombaSumergible();
 }
 
-console.log('✅ bomba_sumergible.js cargado — con emojis confirmados ✅');
+console.log('✅ bomba_sumergible.js cargado — completo ✅');

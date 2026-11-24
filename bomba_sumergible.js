@@ -17,6 +17,7 @@ let timerBomba;
 
 // INICIO
 actualizarEstadoTanque();
+actualizarEstadoBombaSumergible();
 
 // CONTADOR
 function reiniciarContadorBomba() {
@@ -45,14 +46,15 @@ function iniciarContadorBomba() {
 // ESTADOS
 function actualizarEstadoBombaSumergible() {
     const el = document.getElementById('bomba-sumergible-estado');
+    if (!el) return;
     if (haySinAgua) {
-        el.textContent = '⚠️ SIN AGUA';
+        el.textContent = 'SIN AGUA';
         el.className = 'valor sinagua';
     } else if (cicloMantenimientoActivo) {
-        el.textContent = '🔧 MANTENIMIENTO';
+        el.textContent = 'MANTENIMIENTO';
         el.className = 'valor mantenimiento';
     } else {
-        el.textContent = bombaSumergibleEncendida ? '✅ ENCENDIDA' : '⏸️ APAGADA';
+        el.textContent = bombaSumergibleEncendida ? 'ENCENDIDA' : 'APAGADA';
         el.className = bombaSumergibleEncendida ? 'valor activo' : 'valor inactivo';
     }
 }
@@ -60,7 +62,7 @@ function actualizarEstadoBombaSumergible() {
 function actualizarEstadoTanque() {
     const el = document.getElementById('tanque-estado');
     if (el) {
-        el.textContent = tanqueLleno ? '✅ LLENO' : '⏳ LLENÁNDOSE';
+        el.textContent = tanqueLleno ? 'LLENO' : 'LLENÁNDOSE';
         el.className = tanqueLleno ? 'valor activo' : 'valor esperando';
     }
 }
@@ -74,33 +76,45 @@ async function toggleValvulaBomba(nombre) {
     if (!btn) return;
     
     const estabaEncendida = valvulasBomba[nombre];
+    const algunaAbiertaAntes = Object.values(valvulasBomba).some(v => v);
     
-    // ⏱️ SIEMPRE esperar 15s al cambiar — tanto para abrir como para cerrar
+    // ⏱️ Mostrar estado en la VÁLVULA, no en el estado de bomba
     bloqueoBombaSumergible = true;
     btn.classList.add('esperando');
-    document.getElementById('bomba-sumergible-estado').textContent = estabaEncendida ? '⏳ CERRANDO...' : '⏳ ABRIENDO...';
-    document.getElementById('bomba-sumergible-estado').className = 'valor esperando';
-    iniciarContadorBomba();
+    const estadoValvula = document.getElementById(nombre + '-estado');
     
-    await new Promise(r => setTimeout(r, RETARDO_VALVULA));
-    
-    // ✅ Terminó de moverse — ahora sí cambiamos el estado
     if (estabaEncendida) {
-        valvulasBomba[nombre] = false;
-        document.getElementById(nombre + '-estado').textContent = '⏸️ CERRADO';
-        document.getElementById(nombre + '-estado').className = 'valor inactivo';
-        btn.classList.remove('activo');
-        
-        const algunaAbierta = Object.entries(valvulasBomba).some(([k, v]) => k !== nombre && v);
-        if (!algunaAbierta) {
+        estadoValvula.textContent = 'Cerrando...';
+        estadoValvula.className = 'valor esperando';
+        // 🔹 Regla: Si es la última que cerramos → APAGAR BOMBA ENSEGUIDA
+        const soloEstaAbierta = Object.entries(valvulasBomba).every(([k, v]) => k === nombre ? v : !v);
+        if (soloEstaAbierta) {
             bombaSumergibleEncendida = false;
+            actualizarEstadoBombaSumergible();
         }
     } else {
+        estadoValvula.textContent = 'Abriendo...';
+        estadoValvula.className = 'valor esperando';
+    }
+    
+    iniciarContadorBomba();
+    await new Promise(r => setTimeout(r, RETARDO_VALVULA));
+    
+    // ✅ Terminó de moverse
+    if (estabaEncendida) {
+        valvulasBomba[nombre] = false;
+        estadoValvula.textContent = 'CERRADO';
+        estadoValvula.className = 'valor inactivo';
+        btn.classList.remove('activo');
+    } else {
         valvulasBomba[nombre] = true;
-        document.getElementById(nombre + '-estado').textContent = '✅ ABIERTO';
-        document.getElementById(nombre + '-estado').className = 'valor activo';
+        estadoValvula.textContent = 'ABIERTO';
+        estadoValvula.className = 'valor activo';
         btn.classList.add('activo');
-        bombaSumergibleEncendida = true;
+        // 🔹 Regla: Si estaba todo cerrado → ENCENDER BOMBA después de abrir
+        if (!algunaAbiertaAntes) {
+            bombaSumergibleEncendida = true;
+        }
     }
     
     btn.classList.remove('esperando');
@@ -114,65 +128,111 @@ async function iniciarMantenimientoBomba() {
     if (bloqueoBombaSumergible || haySinAgua || cicloMantenimientoActivo) return;
 
     if (!bombaSumergibleEncendida) {
-        alert('⚠️ Encendé la bomba primero para hacer el mantenimiento');
+        alert('Encendé la bomba primero para hacer el mantenimiento');
         return;
     }
 
-    if (!confirm('🔧 Iniciar mantenimiento mensual?\n\nMoverá cada válvula para que no se trabe.')) {
+    if (!confirm('Iniciar mantenimiento mensual?\n\nMoverá cada válvula para que no se trabe.')) {
         return;
     }
 
     cicloMantenimientoActivo = true;
     bloqueoBombaSumergible = true;
+    bombaSumergibleEncendida = false;
+    actualizarEstadoBombaSumergible();
+    
     valvulasBomba = { zona1: false, zona2: false, llenado: false };
     Object.keys(valvulasBomba).forEach(clave => {
         const btn = document.getElementById('btn-' + clave);
         if (btn) btn.classList.remove('activo');
-        document.getElementById(clave + '-estado').textContent = '⏸️ CERRADO';
+        document.getElementById(clave + '-estado').textContent = 'CERRADO';
         document.getElementById(clave + '-estado').className = 'valor inactivo';
     });
-    actualizarEstadoBombaSumergible();
 
     const listaValvulas = ['zona1', 'zona2', 'llenado'];
 
     for (const nombre of listaValvulas) {
+        document.getElementById(nombre + '-estado').textContent = 'Abriendo...';
+        document.getElementById(nombre + '-estado').className = 'valor esperando';
+        iniciarContadorBomba();
+        await new Promise(r => setTimeout(r, RETARDO_MANTENIMIENTO));
+        
         valvulasBomba[nombre] = true;
-        document.getElementById(nombre + '-estado').textContent = '✅ ABIERTO';
+        document.getElementById(nombre + '-estado').textContent = 'ABIERTO';
         document.getElementById(nombre + '-estado').className = 'valor activo';
         const btn = document.getElementById('btn-' + nombre);
         if (btn) btn.classList.add('activo');
-        actualizarEstadoBombaSumergible();
+        if (nombre === listaValvulas[0]) {
+            bombaSumergibleEncendida = true;
+            actualizarEstadoBombaSumergible();
+        }
+        
+        document.getElementById(nombre + '-estado').textContent = 'Cerrando...';
+        document.getElementById(nombre + '-estado').className = 'valor esperando';
+        iniciarContadorBomba();
         await new Promise(r => setTimeout(r, RETARDO_MANTENIMIENTO));
-
+        
         valvulasBomba[nombre] = false;
-        document.getElementById(nombre + '-estado').textContent = '⏸️ CERRADO';
+        document.getElementById(nombre + '-estado').textContent = 'CERRADO';
         document.getElementById(nombre + '-estado').className = 'valor inactivo';
         if (btn) btn.classList.remove('activo');
-        await new Promise(r => setTimeout(r, RETARDO_MANTENIMIENTO));
     }
 
     cicloMantenimientoActivo = false;
     bloqueoBombaSumergible = false;
-    actualizarEstadoBombaSumergible();
-    alert('✅ Mantenimiento finalizado');
-}
-
-// DETENER TODO
-function detenerTodoBomba() {
-    if (cicloMantenimientoActivo) {
-        cicloMantenimientoActivo = false;
-        bloqueoBombaSumergible = false;
-    }
-    Object.keys(valvulasBomba).forEach(clave => {
-        valvulasBomba[clave] = false;
-        const btn = document.getElementById('btn-' + clave);
-        if (btn) btn.classList.remove('activo');
-        document.getElementById(clave + '-estado').textContent = '⏸️ CERRADO';
-        document.getElementById(clave + '-estado').className = 'valor inactivo';
-    });
     bombaSumergibleEncendida = false;
     actualizarEstadoBombaSumergible();
     reiniciarContadorBomba();
+    alert('Mantenimiento finalizado');
+}
+
+// DETENER TODO — APAGA PRIMERO, LUEGO CIERRA CADA UNA
+async function detenerTodoBomba() {
+    if (bloqueoBombaSumergible) return;
+    
+    if (cicloMantenimientoActivo) {
+        cicloMantenimientoActivo = false;
+    }
+    
+    bloqueoBombaSumergible = true;
+    
+    // 🔹 PASO 1 — APAGAR LA BOMBA ENSEGUIDA
+    bombaSumergibleEncendida = false;
+    actualizarEstadoBombaSumergible();
+    
+    // 🔹 PASO 2 — Buscar las que están abiertas
+    const abiertas = Object.entries(valvulasBomba)
+        .filter(([_, abierta]) => abierta)
+        .map(([nombre]) => nombre);
+    
+    if (abiertas.length === 0) {
+        bloqueoBombaSumergible = false;
+        reiniciarContadorBomba();
+        return;
+    }
+    
+    // 🔹 PASO 3 — Cerrar cada una con su tiempo
+    for (const nombre of abiertas) {
+        const estadoValvula = document.getElementById(nombre + '-estado');
+        const btn = document.getElementById('btn-' + nombre);
+        
+        estadoValvula.textContent = 'Cerrando...';
+        estadoValvula.className = 'valor esperando';
+        if (btn) btn.classList.add('esperando');
+        iniciarContadorBomba();
+        
+        await new Promise(r => setTimeout(r, RETARDO_VALVULA));
+        
+        valvulasBomba[nombre] = false;
+        estadoValvula.textContent = 'CERRADO';
+        estadoValvula.className = 'valor inactivo';
+        if (btn) {
+            btn.classList.remove('activo', 'esperando');
+        }
+    }
+    
+    reiniciarContadorBomba();
+    bloqueoBombaSumergible = false;
 }
 
 // REINICIAR SISTEMA
@@ -183,4 +243,4 @@ function reiniciarSistema() {
     actualizarEstadoBombaSumergible();
 }
 
-console.log('✅ bomba_sumergible.js cargado — 15s en cada apertura/cierre ✅');
+console.log('✅ bomba_sumergible.js cargado — textos limpios + reglas de bomba ✅');
